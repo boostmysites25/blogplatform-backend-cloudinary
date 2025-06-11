@@ -1,7 +1,9 @@
 
 const express = require('express');
+const mongoose = require('mongoose');
 const User = require('../models/user.model');
 const { generateToken } = require('../utils/auth');
+const connectToDatabase = require('../utils/dbConnect');
 
 const router = express.Router();
 
@@ -12,8 +14,11 @@ router.post('/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
     
+    // Ensure database connection is established
+    await connectToDatabase();
+    
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email }).maxTimeMS(60000);
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -30,7 +35,7 @@ router.post('/signup', async (req, res) => {
     });
     
     // For first user in system, make them admin
-    const userCount = await User.countDocuments({});
+    const userCount = await User.countDocuments({}).maxTimeMS(60000);
     if (userCount === 1) {
       user.role = 'admin';
       await user.save();
@@ -47,10 +52,30 @@ router.post('/signup', async (req, res) => {
       token: generateToken(user._id)
     });
   } catch (error) {
-    console.error(error);
+    console.error('Signup error:', error);
+    
+    // Handle MongoDB timeout errors specifically
+    if (error.message && error.message.includes('buffering timed out')) {
+      return res.status(504).json({
+        message: 'Registration request timed out',
+        error: 'Database operation timed out. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Handle other MongoDB errors
+    if (error.name === 'MongoError' || error.name === 'MongoServerError' || 
+        error.name === 'MongooseError' || error.name === 'MongooseServerSelectionError') {
+      return res.status(500).json({
+        message: 'Registration failed due to database error',
+        error: 'Database operation failed. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
     res.status(500).json({
       message: 'Registration failed',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
     });
   }
 });
@@ -62,8 +87,11 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Check if user exists
-    const user = await User.findOne({ email });
+    // Ensure database connection is established
+    await connectToDatabase();
+    
+    // Set timeout for this specific query and use lean() for better performance
+    const user = await User.findOne({ email }).maxTimeMS(60000).exec();
     
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -87,10 +115,30 @@ router.post('/login', async (req, res) => {
       token: generateToken(user._id)
     });
   } catch (error) {
-    console.error(error);
+    console.error('Login error:', error);
+    
+    // Handle MongoDB timeout errors specifically
+    if (error.message && error.message.includes('buffering timed out')) {
+      return res.status(504).json({
+        message: 'Login request timed out',
+        error: 'Database operation timed out. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Handle other MongoDB errors
+    if (error.name === 'MongoError' || error.name === 'MongoServerError' || 
+        error.name === 'MongooseError' || error.name === 'MongooseServerSelectionError') {
+      return res.status(500).json({
+        message: 'Login failed due to database error',
+        error: 'Database operation failed. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
     res.status(500).json({
       message: 'Login failed',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
     });
   }
 });

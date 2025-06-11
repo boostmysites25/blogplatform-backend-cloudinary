@@ -139,6 +139,42 @@ For production deployment, make sure to:
 5. Implement rate limiting
 6. Set up proper logging
 
+## Deploying to Vercel
+
+This backend is optimized for deployment on Vercel's serverless platform:
+
+1. Install Vercel CLI:
+   ```
+   npm install -g vercel
+   ```
+
+2. Login to Vercel:
+   ```
+   vercel login
+   ```
+
+3. Deploy to Vercel:
+   ```
+   vercel
+   ```
+
+4. Set environment variables in Vercel:
+   - Go to your project on the Vercel dashboard
+   - Navigate to Settings > Environment Variables
+   - Add all the required environment variables from your `.env` file
+
+5. Important MongoDB Configuration for Vercel:
+   - Use MongoDB Atlas for your database
+   - Ensure your MongoDB Atlas cluster allows connections from all IP addresses (0.0.0.0/0)
+   - Configure MongoDB connection pooling appropriately for serverless environments
+   - The backend includes optimizations for MongoDB connections in serverless environments
+
+6. Troubleshooting MongoDB Connection Issues:
+   - If you experience connection timeouts, check the `/db-health` endpoint to diagnose issues
+   - Ensure your MongoDB Atlas cluster is in the same region as your Vercel deployment
+   - Consider upgrading your MongoDB Atlas tier if you experience performance issues
+   - The backend includes automatic reconnection logic for handling connection drops
+
 ## Error Handling
 
 The API uses a consistent error response format:
