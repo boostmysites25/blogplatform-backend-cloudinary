@@ -81,6 +81,7 @@
         <div id="dbStatus">Checking...</div>
         <button onclick="checkDbStatus()">Check Database Status</button>
         <button onclick="reconnectDb()">Force Reconnect</button>
+        <button onclick="testConnection()">Test Connection</button>
     </div>
     
     <div class="card">
@@ -178,6 +179,29 @@
             } catch (error) {
                 statusDiv.innerHTML = `
                     <div class="status error">Reconnection Failed</div>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+        
+        // Test MongoDB Connection with minimal options
+        async function testConnection() {
+            const statusDiv = document.getElementById('dbStatus');
+            statusDiv.innerHTML = 'Testing connection with minimal options...';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/diagnostic/test-connection`);
+                const data = await response.json();
+                
+                const statusClass = data.success ? 'ok' : 'error';
+                
+                statusDiv.innerHTML = `
+                    <div class="status ${statusClass}">${data.success ? 'Connection Test Successful' : 'Connection Test Failed'}</div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">Connection Test Failed</div>
                     <p>Error: ${error.message}</p>
                 `;
             }

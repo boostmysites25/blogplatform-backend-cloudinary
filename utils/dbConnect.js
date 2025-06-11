@@ -8,6 +8,17 @@ let connectionAttempts = 0;
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_INTERVAL = 2000; // 2 seconds
 
+// MongoDB connection options - using only supported options
+const CONNECTION_OPTIONS = {
+  serverSelectionTimeoutMS: 60000, // 60 seconds
+  socketTimeoutMS: 60000, // 60 seconds
+  connectTimeoutMS: 60000, // 60 seconds
+  bufferCommands: false,
+  maxPoolSize: 10,
+  minPoolSize: 0,
+  dbName: 'blog-platform'
+};
+
 /**
  * Connect to MongoDB with optimized settings for serverless environments
  * This function implements connection pooling, caching, and retry logic
@@ -56,25 +67,8 @@ async function connectToDatabase() {
       console.log(`Connecting to MongoDB: ${sanitizedUri}`);
 
       // Connect with optimized settings for serverless
-      const conn = await mongoose.connect(process.env.MONGODB_URI, {
-        // Serverless optimized settings with increased timeouts
-        serverSelectionTimeoutMS: 60000, // 60 seconds
-        socketTimeoutMS: 60000, // 60 seconds
-        connectTimeoutMS: 60000, // 60 seconds
-        // Disable buffering for serverless
-        bufferCommands: false,
-        // Connection pool settings
-        maxPoolSize: 10,
-        minPoolSize: 0,
-        // Other settings
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        autoReconnect: true,
-        keepAlive: true,
-        keepAliveInitialDelay: 300000, // 5 minutes
-        // Always use blog-platform as the database name
-        dbName: 'blog-platform'
-      });
+      // Using only supported options from our CONNECTION_OPTIONS object
+      const conn = await mongoose.connect(process.env.MONGODB_URI, CONNECTION_OPTIONS);
 
       // Cache the connection
       cachedDb = conn;

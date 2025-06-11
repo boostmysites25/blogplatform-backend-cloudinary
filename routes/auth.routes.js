@@ -95,10 +95,20 @@ router.post('/login', async (req, res) => {
       await connectToDatabase();
     } catch (dbError) {
       console.error('Database connection failed during login:', dbError);
+      
+      // Provide more specific error message based on the error type
+      let errorMessage = 'Service temporarily unavailable. Please try again in a few moments.';
+      
+      if (dbError.name === 'MongoParseError') {
+        errorMessage = 'Database configuration error. Please contact support.';
+        console.error('MongoDB connection string format error:', dbError.message);
+      }
+      
       return res.status(503).json({
         success: false,
         message: 'Database connection failed',
-        error: 'Service temporarily unavailable. Please try again in a few moments.'
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
       });
     }
     
