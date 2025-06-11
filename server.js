@@ -7,6 +7,7 @@ const path = require("path");
 const connectToDatabase = require('./utils/dbConnect');
 const ensureDatabaseConnection = require('./middleware/dbConnectionMiddleware');
 const { checkDatabaseHealth } = require('./utils/dbHealthCheck');
+const { validateEnvironment } = require('./utils/validateEnv');
 
 // Import routes
 const authRoutes = require("./routes/auth.routes");
@@ -14,9 +15,20 @@ const blogRoutes = require("./routes/blog.routes");
 const userRoutes = require("./routes/user.routes");
 const categoryRoutes = require("./routes/category.routes");
 const authorRoutes = require("./routes/author.routes");
+const diagnosticRoutes = require("./routes/diagnostic.routes");
 
 // Load environment variables
 dotenv.config();
+
+// Validate environment variables
+const envValidation = validateEnvironment();
+if (!envValidation.isValid) {
+  console.error('Environment validation failed:');
+  envValidation.errors.forEach(err => console.error(`- ${err}`));
+  // Continue execution but log warnings
+} else {
+  console.log('Environment validation passed');
+}
 
 const app = express();
 
@@ -29,6 +41,8 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(morgan("dev"));
 
 // No longer serving uploaded files from filesystem as we're using base64 images
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Connect to MongoDB using our optimized connection helper for serverless environments
 connectToDatabase()
@@ -74,10 +88,45 @@ app.get("/", (req, res) => {
   res.send("Hello World");
 });
 
-// Apply database connection middleware to all API routes
+// Environment diagnostic route (doesn't require DB connection)
+app.get("/env-check", (req, res) => {
+  // Get basic environment info without exposing secrets
+  const envInfo = {
+    nodeEnv: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || 5000,
+    mongoDbConfigured: !!process.env.MONGODB_URI,
+    jwtConfigured: !!process.env.JWT_SECRET,
+    vercel: {
+      isVercel: !!process.env.VERCEL,
+      region: process.env.VERCEL_REGION || 'unknown',
+      environment: process.env.VERCEL_ENV || 'unknown'
+    },
+    system: {
+      platform: process.platform,
+      nodeVersion: process.version,
+      uptime: process.uptime()
+    }
+  };
+  
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    environment: envInfo
+  });
+});
+
+// Diagnostic web interface
+app.get("/diagnostic", (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'diagnostic.html'));
+});
+
+// Add diagnostic routes without DB connection requirement
+app.use("/api/diagnostic", diagnosticRoutes);
+
+// Apply database connection middleware to all other API routes
 app.use("/api", ensureDatabaseConnection);
 
-// Routes
+// Routes that require database connection
 app.use("/api/auth", authRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/users", userRoutes);
